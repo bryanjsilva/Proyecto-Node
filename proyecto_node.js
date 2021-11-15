@@ -81,6 +81,7 @@ app.get('/api/v1/autores/:id',(request,response)=>{
     })
 })
 
+//Agrega un nuevo usuario
 app.post('/api/v1/autores',(request,response)=>{
     pool.getConnection((err,connection)=>{
         const pseudonimo = connection.escape(request.body.pseudonimo)
@@ -106,6 +107,7 @@ app.post('/api/v1/autores',(request,response)=>{
     })
 })
 
+//Agrega una nueva publicación para un usuario con email y contrasena
 app.post('/api/v1/publicaciones',(request,response)=>{
     pool.getConnection((err,connection)=>{
         const email = connection.escape(request.body.email)
@@ -124,6 +126,30 @@ app.post('/api/v1/publicaciones',(request,response)=>{
                         response.status(201)
                         response.json({data: filas[0]})
                     })
+                })
+            }
+        })
+        connection.release()
+    })
+})
+
+//Elimina una publicación para un usuario con email y contrasena, no puede eliminar publicaciones de otros autores
+app.post('/api/v1/publicaciones/:id',(request,response)=>{
+    pool.getConnection((err,connection)=>{
+        const email = connection.escape(request.body.email)
+        const contrasena = connection.escape(request.body.contrasena)
+        const queryAuth = `SELECT * FROM autores WHERE email = ${email} AND contrasena = ${contrasena}`
+        connection.query(queryAuth,(error,filas,campos)=>{
+            if(filas.length > 0){
+                const publicacionId = connection.escape(request.params.id)
+                const autorId = connection.escape(filas[0].id)
+                const queryEliminarPublicacion = `DELETE FROM publicaciones WHERE publicacionid = ${publicacionId} AND autor_id = ${autorId}`
+                connection.query(queryEliminarPublicacion,(error,filas,campos)=>{
+                    if(filas && filas.affectedRows > 0){
+                        response.json({data: ['La publicación se eliminó correctamente']})
+                    }else{
+                        response.json({errors: ['La publicación no pudo eliminarse']})
+                    }
                 })
             }
         })
@@ -161,9 +187,12 @@ app.listen(8080, function(){
 
     curl -X POST -H "Content-Type: application/json" -d "{\"pseudonimo\": \"yorch\", \"email\": \"yorch@email.com\", \"contrasena\": \"111222\"}" http://localhost:8080/api/v1/autores
 
-7. POST /api/v1/publicaciones crear publicación para un autor con email y contrasena desde curl
+7. POST /api/v1/publicaciones?email=<email>&contrasena=<contrasena> crear publicación para un autor con email y contrasena desde curl
 
     curl -X POST -H "Content-Type: application/json" -d "{\"email\": \"jose@email.com\", \"contrasena\": \"jj00\", \"titulo\": \"Viaje a Portoviejo\", \"resumen\": \"Hola Portoviejo\",\"contenido\": \"Buen viaje a Portoviejo\"}" http://localhost:8080/api/v1/publicaciones
 
+8. DELETE /api/v1/publicaciones/<id>?email=<email>&contrasena=<contrasena> eliminar publicacion si pertenece al mismo autor desde curl
 
+    curl -X POST -H "Content-Type: application/json" -d "{\"email\": \"ana@email.com\", \"contrasena\": \"123321\"}" http://localhost:8080/api/v1/publicaciones/5
 */
+
