@@ -7,6 +7,7 @@ const { compile } = require('proxy-addr')
 const { request } = require('http')
 const { response } = require('express')
 
+//Conexión con la base de datos
 const pool = mysql.createPool({
     connectionLimit: 20,
     host: 'localhost',
@@ -18,6 +19,7 @@ const pool = mysql.createPool({
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: true}))
 
+//Muestra todas las publicaciones si no hay ningún criterio de búsqueda
 app.get('/api/v1/publicaciones',(request,response)=>{
     pool.getConnection((err,connection)=>{
         let queryBusqueda = ''
@@ -34,6 +36,7 @@ app.get('/api/v1/publicaciones',(request,response)=>{
     })
 })
 
+//Muestra publicaciones de acuerdo al id
 app.get('/api/v1/publicaciones/:id',(request,response)=>{
     pool.getConnection((err,connection)=>{
         const publicacionId = connection.escape(request.params.id)
@@ -50,6 +53,7 @@ app.get('/api/v1/publicaciones/:id',(request,response)=>{
     })
 })
 
+//Muestra todos los autores
 app.get('/api/v1/autores',(request, response)=>{
     pool.getConnection((err,connection)=>{
         const queryAutores = `SELECT * FROM autores`
@@ -60,6 +64,7 @@ app.get('/api/v1/autores',(request, response)=>{
     })
 })
 
+//Muestra autores de acuerdo al id
 app.get('/api/v1/autores/:id',(request,response)=>{
     pool.getConnection((err,connection)=>{
         const autorId = connection.escape(request.params.id)
@@ -75,7 +80,31 @@ app.get('/api/v1/autores/:id',(request,response)=>{
         connection.release()
     })
 })
-  
+
+app.post('/api/v1/autores',(request,response)=>{
+    pool.getConnection((err,connection)=>{
+        const pseudonimo = connection.escape(request.body.pseudonimo)
+        const email = connection.escape(request.body.email)
+        const contrasena = connection.escape(request.body.contrasena)
+        const queryAutorRepetido = `SELECT * FROM autores WHERE pseudonimo = ${pseudonimo} OR email = ${email}`
+        connection.query(queryAutorRepetido,(error,filas,campos)=>{
+            if(filas[0]){
+                response.send({errors: ['Pseudónimo o el email ya se encuentran en uso']})
+            }else{
+                const queryAgregarAutor = `INSERT INTO autores (pseudonimo, email, contrasena) VALUES(${pseudonimo},${email},${contrasena})`
+                connection.query(queryAgregarAutor,(error,filas,campos)=>{
+                    const nuevoId = connection.escape(filas.insertId)
+                    const queryAutor = `SELECT * FROM autores WHERE id = ${nuevoId}`
+                    connection.query(queryAutor,(error,filas,campos)=>{
+                        response.status(201)
+                        response.json({data: filas[0]})
+                    })
+                })
+            }
+        })
+        connection.release()
+    })
+})
 
 app.listen(8080, function(){
     console.log("Servidor iniciado")
@@ -102,4 +131,12 @@ app.listen(8080, function(){
 5. GET /api/v1/autores/<id> desde curl
 
     curl -X GET -H "Content-tYpe: applicaction/json" http://localhost:8080/api/v1/autores/10
+
+6. POST /api/v1/autores crear autor y verificar email, pseudónimo repetidos desde curl 
+
+    curl -X POST -H "Content-Type: application/json" -d "{\"pseudonimo\": \"yorch\", \"email\": \"yorch@email.com\", \"contrasena\": \"111222\"}" http://localhost:8080/api/v1/autores
+
+7. POST /api/v1/publicaciones crear publicación para un autor con email y contrasena desde curl
+
+
 */
