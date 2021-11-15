@@ -106,6 +106,31 @@ app.post('/api/v1/autores',(request,response)=>{
     })
 })
 
+app.post('/api/v1/publicaciones',(request,response)=>{
+    pool.getConnection((err,connection)=>{
+        const email = connection.escape(request.body.email)
+        const contrasena = connection.escape(request.body.contrasena)
+        const queryAuth = `SELECT * FROM autores WHERE email = ${email} AND contrasena = ${contrasena}`
+        connection.query(queryAuth,(error,filas,campos)=>{
+            if(filas.length > 0){
+                const titulo = connection.escape(request.body.titulo)
+                const resumen = connection.escape(request.body.resumen)
+                const contenido = connection.escape(request.body.contenido)
+                const queryAgregarPublicacion = `INSERT INTO publicaciones (titulo,resumen,contenido,autor_id) VALUES (${titulo},${resumen},${contenido},${filas[0].id})`
+                connection.query(queryAgregarPublicacion,(error,filas,campos)=>{
+                    const nuevoId = connection.escape(filas.insertId)
+                    const queryConsulta = `SELECT * FROM publicaciones WHERE publicacionid = ${nuevoId}`
+                    connection.query(queryConsulta,(error,filas,campos)=>{
+                        response.status(201)
+                        response.json({data: filas[0]})
+                    })
+                })
+            }
+        })
+        connection.release()
+    })
+})
+
 app.listen(8080, function(){
     console.log("Servidor iniciado")
   })
@@ -137,6 +162,8 @@ app.listen(8080, function(){
     curl -X POST -H "Content-Type: application/json" -d "{\"pseudonimo\": \"yorch\", \"email\": \"yorch@email.com\", \"contrasena\": \"111222\"}" http://localhost:8080/api/v1/autores
 
 7. POST /api/v1/publicaciones crear publicación para un autor con email y contrasena desde curl
+
+    curl -X POST -H "Content-Type: application/json" -d "{\"email\": \"jose@email.com\", \"contrasena\": \"jj00\", \"titulo\": \"Viaje a Portoviejo\", \"resumen\": \"Hola Portoviejo\",\"contenido\": \"Buen viaje a Portoviejo\"}" http://localhost:8080/api/v1/publicaciones
 
 
 */
